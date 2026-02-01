@@ -1,5 +1,5 @@
 -- ===============================
--- ESP FULL UI FINAL (CENTER TOP TRACER)
+-- ESP FULL UI FINAL (FIXED)
 -- ===============================
 
 local Players = game:GetService("Players")
@@ -12,11 +12,11 @@ for _,v in ipairs(LP.PlayerGui:GetChildren()) do
 	if v.Name == "SilentAimUI" then v:Destroy() end
 end
 
--- ===== STATE =====
-local espEnabled = true
-local nameEnabled = true
-local hpEnabled = true
-local tracerEnabled = true
+-- ===== STATE (START OFF) =====
+local espEnabled = false
+local nameEnabled = false
+local hpEnabled = false
+local tracerEnabled = false
 
 local espScale = 100
 local nameScale = 100
@@ -82,10 +82,10 @@ local function makeBtn(y,text)
 	return b
 end
 
-local espBtn    = makeBtn(44,"ESP : ON")
-local nameBtn   = makeBtn(76,"Name ESP : ON")
-local hpBtn     = makeBtn(108,"HP ESP : ON")
-local tracerBtn = makeBtn(140,"เส้นนำทาง : ON")
+local espBtn    = makeBtn(44,"ESP : OFF")
+local nameBtn   = makeBtn(76,"Name ESP : OFF")
+local hpBtn     = makeBtn(108,"HP ESP : OFF")
+local tracerBtn = makeBtn(140,"เส้นนำทาง : OFF")
 
 -- ===== SLIDER =====
 local function slider(y)
@@ -133,23 +133,31 @@ mini.InputBegan:Connect(function(i)
 end)
 
 -- ===== TOGGLE =====
-local function toggle(btn,state,on,off)
-	btn.MouseButton1Click:Connect(function()
-		state = not state
-		btn.Text = state and on or off
-	end)
-	return function() return state end
-end
+espBtn.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	espBtn.Text = espEnabled and "ESP : ON" or "ESP : OFF"
+end)
 
-local getESP    = toggle(espBtn,true,"ESP : ON","ESP : OFF")
-local getName   = toggle(nameBtn,true,"Name ESP : ON","Name ESP : OFF")
-local getHP     = toggle(hpBtn,true,"HP ESP : ON","HP ESP : OFF")
-local getTracer = toggle(tracerBtn,true,"เส้นนำทาง : ON","เส้นนำทาง : OFF")
+nameBtn.MouseButton1Click:Connect(function()
+	nameEnabled = not nameEnabled
+	nameBtn.Text = nameEnabled and "Name ESP : ON" or "Name ESP : OFF"
+end)
+
+hpBtn.MouseButton1Click:Connect(function()
+	hpEnabled = not hpEnabled
+	hpBtn.Text = hpEnabled and "HP ESP : ON" or "HP ESP : OFF"
+end)
+
+tracerBtn.MouseButton1Click:Connect(function()
+	tracerEnabled = not tracerEnabled
+	tracerBtn.Text = tracerEnabled and "เส้นนำทาง : ON" or "เส้นนำทาง : OFF"
+end)
 
 minusBtn.MouseButton1Click:Connect(function()
 	main.Visible=false
 	mini.Visible=true
 end)
+
 mini.MouseButton1Click:Connect(function()
 	main.Visible=true
 	mini.Visible=false
@@ -185,7 +193,14 @@ end)
 espBar.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then slidingEsp=true end end)
 nameBar.InputBegan:Connect(function(i) if i.UserInputType==Enum.UserInputType.MouseButton1 then slidingName=true end end)
 
--- ===== CLOSE =====
+-- ===== CLEANUP =====
+Players.PlayerRemoving:Connect(function(p)
+	if ESP_CACHE[p] then
+		for _,d in pairs(ESP_CACHE[p]) do d:Remove() end
+		ESP_CACHE[p]=nil
+	end
+end)
+
 closeBtn.MouseButton1Click:Connect(function()
 	for _,v in pairs(ESP_CACHE) do
 		for _,d in pairs(v) do d:Remove() end
@@ -200,6 +215,13 @@ RunService.RenderStepped:Connect(function()
 	espLabel.Text="ESP Size : "..espScale
 	nameLabel.Text="Name Size : "..nameScale
 
+	if not espEnabled then
+		for _,v in pairs(ESP_CACHE) do
+			for _,d in pairs(v) do d.Visible=false end
+		end
+		return
+	end
+
 	local vp = Cam.ViewportSize
 	local tracerStart = Vector2.new(vp.X/2, vp.Y*0.15)
 
@@ -208,12 +230,7 @@ RunService.RenderStepped:Connect(function()
 			local hum=p.Character:FindFirstChildOfClass("Humanoid")
 			local root=p.Character:FindFirstChild("HumanoidRootPart")
 			local head=p.Character:FindFirstChild("Head")
-			if not hum or hum.Health<=0 or not root or not getESP() then
-				if ESP_CACHE[p] then
-					for _,d in pairs(ESP_CACHE[p]) do d.Visible=false end
-				end
-				continue
-			end
+			if not hum or hum.Health<=0 or not root then continue end
 
 			if not ESP_CACHE[p] then
 				ESP_CACHE[p]={
@@ -244,30 +261,30 @@ RunService.RenderStepped:Connect(function()
 			box.Position=Vector2.new(r.X-w/2,r.Y-hb/2)
 			box.Visible=true
 
-			if getName() then
+			local name=ESP_CACHE[p].name
+			if nameEnabled then
 				local hpos=Cam:WorldToViewportPoint(head.Position+Vector3.new(0,0.6,0))
-				local name=ESP_CACHE[p].name
 				name.Text=p.Name
 				name.Size=nameScale
 				name.Position=Vector2.new(hpos.X,hpos.Y-16)
 				name.Visible=true
-			end
+			else name.Visible=false end
 
-			if getHP() then
-				local hp=ESP_CACHE[p].hp
+			local hp=ESP_CACHE[p].hp
+			if hpEnabled then
 				hp.Text="HP "..math.floor(hum.Health)
 				hp.Size=13
 				hp.Position=Vector2.new(r.X,r.Y+hb/2+2)
 				hp.Color=hum.Health<40 and Color3.fromRGB(255,60,60) or Color3.fromRGB(60,255,60)
 				hp.Visible=true
-			end
+			else hp.Visible=false end
 
-			if getTracer() then
-				local line=ESP_CACHE[p].line
+			local line=ESP_CACHE[p].line
+			if tracerEnabled then
 				line.From=tracerStart
 				line.To=Vector2.new(r.X,r.Y-hb/2)
 				line.Visible=true
-			end
+			else line.Visible=false end
 		end
 	end
 end)
